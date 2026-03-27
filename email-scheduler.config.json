@@ -1,0 +1,75 @@
+{
+  "infinity_box": {
+    "email_account": "juan@infinitybox.cl",
+    "email_from": "Juan - Infinity Box",
+    "template": {
+      "subject": "Cajas de cartón corrugado a medida para industria",
+      "body": "Hola,\n\nEn Infinity Box fabricamos cajas de cartón corrugado personalizadas.\nContamos con corrugadora propia, lo que nos permite optimizar costos y tiempos.\n\nNuestro foco es que cada caja cumpla tres objetivos:\n1) proteger bien el producto sin sobreempacar,\n2) optimizar costos de empaque y transporte (gramaje justo, peso optimizado),\n3) mantener una presentación profesional de marca.\n\nTrabajamos con certificación HACCP, ensayos de ECT (y próximamente BCT), y certificación FSC para asegurar consistencia técnica y sostenibilidad.\n\nSi compartes medidas, gramaje actual y volumen mensual de un formato que usen hoy,\nte enviamos una cotización comparativa.\n\n¿Te interesa que lo revisemos con 1 formato para validar rápido?\n\nJuan\nInfinity Box · juan@infinitybox.cl · +56927968415 · www.infinitybox.cl"
+    }
+  },
+  "scheduling": {
+    "timezone": "America/Santiago",
+    "business_hours": {
+      "start": "09:00",
+      "end": "18:59"
+    },
+    "workdays": [1, 2, 3, 4, 5],
+    "no_send_on": ["2026-04-10", "2026-04-11"],
+    "daily_send_time": "09:30",
+    "daily_generate_time": "09:00",
+    "bounce_check_interval_minutes": 30
+  },
+  "contacts": {
+    "daily_limit": 20,
+    "ramp_per_day": 20,
+    "locations": ["Santiago"],
+    "exclude_sectors": [],
+    "exclude_keywords": ["consultoría", "agencia", "gobierno", "licitación"],
+    "exclude_competitors": [
+      "WS Box",
+      "PartnerBox",
+      "CorruBox",
+      "ShieldBox",
+      "Faencar",
+      "CorruPack",
+      "ChileCartón",
+      "CartoCor",
+      "CMPC",
+      "RapiCajas"
+    ]
+  },
+  "delivery": {
+    "delay_seconds_min": 20,
+    "delay_seconds_max": 55,
+    "max_emails_per_domain": 1,
+    "retry_attempts": 2,
+    "retry_delay_seconds": 300
+  },
+  "monitoring": {
+    "bounce_rate_threshold": 0.20,
+    "soft_bounce_max": 3,
+    "hard_bounce_action": "blacklist",
+    "bounce_check_interval_minutes": 30,
+    "alert_on_bounce_rate_exceed": true
+  },
+  "integration": {
+    "supabase_url": "${SUPABASE_URL}",
+    "supabase_key": "${SUPABASE_KEY}",
+    "telegram_bot_token": "${TELEGRAM_BOT_TOKEN}",
+    "telegram_chat_id": "7416120460",
+    "zoho_mail_api": "https://mail.zoho.com/api",
+    "zoho_account_id": "juan@infinitybox.cl"
+  },
+  "logging": {
+    "log_file": "~/.claude/logs/email-scheduler.log",
+    "log_level": "INFO",
+    "max_log_size_mb": 50,
+    "rotate_logs": true
+  },
+  "approval_workflow": {
+    "require_approval": true,
+    "approval_deadline_hours": 3,
+    "auto_send_next_day": true,
+    "send_time_offset_hours": 24
+  }
+}
