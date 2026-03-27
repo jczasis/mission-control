@@ -3,6 +3,8 @@ import { CSS } from './styles.js';
 import { sGet, sSet } from './db.js';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
+const MASTER_KEY = 'Empex2026';
+
 const CARD_DEFS = {
   clock:          { title: 'Reloj / Sistema',    cols: 3,  section: 'SISTEMA' },
   kpi:            { title: 'KPIs',               cols: 3,  section: 'SISTEMA' },
@@ -1241,12 +1243,20 @@ export default function App() {
     const handler = (e) => {
       const tag = e.target.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      if (e.key === 'l' || e.key === 'L') setUnlocked(u => !u);
+      if (e.key === 'l' || e.key === 'L') {
+        if (!unlocked) {
+          const key = prompt('Clave para desbloquear:');
+          if (key === MASTER_KEY) setUnlocked(true);
+          else if (key !== null) alert('❌ Clave incorrecta');
+        } else {
+          setUnlocked(false);
+        }
+      }
       if ((e.key === 'n' || e.key === 'N') && firstTodoRef.current) firstTodoRef.current.focus();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [unlocked]);
 
   const removeCard = (id) => setCards(prev => prev.filter(c => c !== id));
   const addCard    = (id) => {
@@ -1397,7 +1407,16 @@ export default function App() {
             <input
               type="checkbox"
               checked={unlocked}
-              onChange={e => setUnlocked(e.target.checked)}
+              onChange={e => {
+                if (e.target.checked) {
+                  const key = prompt('Clave para desbloquear:');
+                  if (key === MASTER_KEY) setUnlocked(true);
+                  else if (key !== null) alert('❌ Clave incorrecta');
+                  e.target.checked = false;
+                } else {
+                  setUnlocked(false);
+                }
+              }}
             />
             <span className="slider" />
           </div>
