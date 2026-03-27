@@ -18,6 +18,7 @@ const CARD_DEFS = {
   cron_status:    { title: 'Cron Status',        cols: 4,  section: 'SISTEMA' },
   // DATOS
   seia_pipeline:  { title: 'SEIA Pipeline',      cols: 6,  section: 'DATOS' },
+  infinity_mailer: { title: 'Infinity Mailer',   cols: 6,  section: 'DATOS' },
   live_log:       { title: 'Log en Vivo',        cols: 6,  section: 'DATOS' },
   alerts:         { title: 'Alertas',            cols: 4,  section: 'DATOS' },
   // NEGOCIO
@@ -36,7 +37,7 @@ const INITIAL_CARDS = [
   'todo_personal','todo_empex','todo_infinity',
   'tools',
   'notes',
-  'seia_pipeline','live_log','alerts',
+  'seia_pipeline','infinity_mailer','live_log','alerts',
   'empex_pipeline','inbox','meta_snapshot',
   'server_health','github_commits','uptime',
 ];
@@ -51,7 +52,7 @@ const INITIAL_TOOLS = [
   { id: 'seia',    name: 'SEIA Scraper',      status: 'ok',   cron: 'cron 08:00',  scripts: '7 scripts',         lastRun: Date.now() - 12 * 60000 },
   { id: 'emailer', name: 'EMPEX Mailer',       status: 'off',  cron: '',            scripts: '5 scripts',         lastRun: null },
   { id: 'ewapp',   name: 'EMPEX WhatsApp',     status: 'warn', cron: '',            scripts: 'Selenium headless', lastRun: Date.now() - 47 * 60000 },
-  { id: 'imailer', name: 'InfinityBox Mailer', status: 'off',  cron: '',            scripts: 'pendiente',         lastRun: null },
+  { id: 'imailer', name: 'InfinityBox Mailer', status: 'ok',   cron: '08:45,09:00', scripts: '5 crons',           lastRun: Date.now() - 2 * 60000 },
   { id: 'meta',    name: 'Meta Ads Manager',   status: 'off',  cron: '',            scripts: '8 scripts+Remotion',lastRun: null },
   { id: 'school',  name: 'School Monitor',     status: 'ok',   cron: 'cron 07:00',  scripts: '',                  lastRun: Date.now() - 3 * 60000 },
   { id: 'mc',      name: 'Mission Control',    status: 'ok',   cron: 'activo',      scripts: '',                  lastRun: Date.now() - 1 * 60000 },
@@ -734,6 +735,93 @@ function LiveLogCard() {
   );
 }
 
+// ─── INFINITY MAILER CARD ─────────────────────────────────────────────────────
+function InfinityMailerCard() {
+  const [data, setData] = useState({
+    leads_today: 0,
+    leads_pending: 0,
+    leads_sent: 0,
+    bounce_rate: 0,
+    status: 'ok',
+    next_cron: '08:45 (L-J)',
+    last_run: null,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMailerData = async () => {
+      try {
+        // Intenta leer desde Supabase table (future)
+        // Por ahora, calcula desde datos en localStorage del proceso
+        const pendingLS = await sGet('imailer_pending_count') || '0';
+        const sentLS = await sGet('imailer_sent_count') || '0';
+        const bounceLS = await sGet('imailer_bounce_rate') || '0';
+
+        const pending = parseInt(pendingLS) || 0;
+        const sent = parseInt(sentLS) || 0;
+        const bounces = parseFloat(bounceLS) || 0;
+
+        setData({
+          leads_today: pending + sent,
+          leads_pending: pending,
+          leads_sent: sent,
+          bounce_rate: bounces,
+          status: bounces > 20 ? 'warn' : (pending === 0 && sent === 0 ? 'off' : 'ok'),
+          next_cron: '08:45 (L-J) / 09:00 (Envío)',
+          last_run: Date.now() - Math.random() * 3600000, // mock
+        });
+      } catch (e) {
+        console.error('Infinity Mailer fetch:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMailerData();
+    const interval = setInterval(fetchMailerData, 60000); // sync cada minuto
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) return <SkeletonCard cols={6} />;
+
+  const statusColor = data.status === 'ok' ? 'var(--acc)' : (data.status === 'warn' ? 'var(--amb)' : 'var(--red)');
+  const bounceColor = data.bounce_rate > 20 ? 'var(--red)' : 'var(--acc)';
+
+  return (
+    <div className="card-body">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+        <div>
+          <div style={{ fontSize: '11px', color: 'var(--td)', textTransform: 'uppercase', marginBottom: '4px' }}>Leads Hoy</div>
+          <div style={{ fontSize: '24px', fontWeight: 600, color: 'var(--acc)' }}>{data.leads_today}</div>
+          <div style={{ fontSize: '9px', color: 'var(--td)', marginTop: '2px' }}>
+            {data.leads_pending} pendientes • {data.leads_sent} enviados
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize: '11px', color: 'var(--td)', textTransform: 'uppercase', marginBottom: '4px' }}>Bounces</div>
+          <div style={{ fontSize: '24px', fontWeight: 600, color: bounceColor }}>{data.bounce_rate.toFixed(1)}%</div>
+          <div style={{ fontSize: '9px', color: 'var(--td)', marginTop: '2px' }}>Tasa de rebote</div>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '8px 0', borderTop: '1px solid var(--b)', borderBottom: '1px solid var(--b)' }}>
+        <div>
+          <span style={{ fontSize: '9px', color: 'var(--td)' }}>Estado</span>
+          <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span className="sys-dot" style={{ background: statusColor, width: '8px', height: '8px' }} />
+            <span style={{ fontSize: '11px', color: statusColor, fontWeight: 500 }}>{data.status.toUpperCase()}</span>
+          </div>
+        </div>
+        <div>
+          <span style={{ fontSize: '9px', color: 'var(--td)' }}>Próximo Cron</span>
+          <div style={{ marginTop: '4px', fontSize: '11px', color: 'var(--acc)' }}>{data.next_cron}</div>
+        </div>
+      </div>
+      <div style={{ marginTop: '8px', fontSize: '9px', color: 'var(--td)' }}>
+        Última ejecución: {data.last_run ? relTime(data.last_run) : '-'}
+      </div>
+    </div>
+  );
+}
+
 // ─── ALERTS CARD ─────────────────────────────────────────────────────────────
 const DEFAULT_ALERTS = [
   { id: uid(), ts: Date.now() - 3600000, level: 'warn', message: 'Meta Ads token expira en 5 días' },
@@ -1348,6 +1436,17 @@ export default function App() {
             </span>
           }>
             <SeiaPipelineCard />
+          </CardWrapper>
+        );
+      case 'infinity_mailer':
+        return (
+          <CardWrapper key={id} {...wp} extraHeader={
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span className="live-dot" />
+              <span className="live-label">CRON</span>
+            </span>
+          }>
+            <InfinityMailerCard />
           </CardWrapper>
         );
       case 'live_log':
