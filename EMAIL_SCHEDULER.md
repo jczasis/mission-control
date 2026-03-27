@@ -2,13 +2,24 @@
 
 ## 📋 Visión
 
-Sistema integrado de programación de campañas de email con **pipeline de aprobación automático** (día siguiente).
+Sistema integrado de programación de campañas de email **DIARIO (L-V)** con pipeline de aprobación automático.
 
-**Flujo**:
-1. Sistema genera lista de contactos para mañana (09:00 CL)
-2. Juan aprueba en Mission Control antes de mediodía
-3. Sistema envía automáticamente mañana a las 09:30 CL
-4. Monitorea bounces y mantiene blacklist automática
+**Flujo Diario**:
+1. **09:00 CL**: Sistema genera lista de 20 contactos para **MAÑANA** (status: pending)
+2. **Antes 12:00 CL**: Juan aprueba en Mission Control (status: approved)
+3. **09:00 CL MAÑANA**: Sistema ya genera nueva lista para pasado mañana
+4. **09:30 CL MAÑANA**: Sistema envía automáticamente campaña aprobada ayer
+5. **Continuo**: Monitorea bounces cada 30 min + mantiene blacklist automática
+
+**Cadena Diaria** (ejemplo Lunes-Martes-Miércoles):
+- Lunes 09:00: Genera para Martes (pending)
+- Lunes <12:00: Aprueba → approved
+- Martes 09:00: Genera para Miércoles (pending)
+- Martes 09:30: Envía Lunes (sent)
+- Martes <12:00: Aprueba → approved
+- Miércoles 09:00: Genera para Jueves (pending)
+- Miércoles 09:30: Envía Martes (sent)
+- ... continúa L-V sin intervención manual
 
 ---
 
@@ -56,18 +67,26 @@ email_approvals
 
 ---
 
-## 📅 Cronograma
+## 📅 Cronograma DIARIO (L-V)
 
-### Lunes a Viernes
+### Cada día laboral (Lunes-Viernes)
 
-| Hora CL | Acción | Cron | Estado |
-|---------|--------|------|--------|
-| **09:00** | Generar lista | `00 14 * * 1-5` | 🔵 pending |
-| **09:00-12:00** | Juan aprueba | Manual en UI | 🔵 → 🟢 |
-| **09:30** | Enviar aprobadas | `30 14 * * 1-5` | 🟢 → 🟣 |
-| **Cada 30 min** | Verificar bounces | `*/30 * * * *` | 🔍 Monitoreo |
+| Hora CL | Acción | Objetivo | Cron | Estado |
+|---------|--------|----------|------|--------|
+| **09:00** | Generar | Crea 20 contactos PARA MAÑANA | `00 14 * * 1-5` | 🔵 pending |
+| **09:00-12:00** | Juan aprueba | Usuario revisa + click "Aprobar" | Manual en UI | 🔵 → 🟢 |
+| **09:30** | Enviar | Envía aprobadas DE AYER | `30 14 * * 1-5` | 🟢 → 🟣 |
+| **Cada 30 min** | Monitorear | Verifica bounces + blacklist | `*/30 * * * *` | 🔍 |
+| **09:30+1 día** | Generar siguiente | Ya genera para día después | Continúo | 🔵 |
 
-### Sin envíos S/D
+### Sin envíos sábado-domingo
+
+### Cadena automática (encadenada)
+- Día N 09:00 → Genera para N+1
+- Día N <12:00 → Apruebas
+- Día N+1 09:30 → Envía Día N
+- Día N+1 09:00 → Genera para N+2
+- Loop automático L-V
 
 ---
 
