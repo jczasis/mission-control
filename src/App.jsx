@@ -690,7 +690,7 @@ function LiveLogCard() {
 
   useEffect(() => {
     const fetch_ = () => {
-      fetch('http://localhost:4242/log')
+      fetch('https://asn-disk-opera-feature.trycloudflare.com/log')
         .then(r => r.json())
         .then(data => {
           setError(false);
@@ -1013,7 +1013,7 @@ function ServerHealthCard() {
 
   useEffect(() => {
     const fetch_ = () => {
-      fetch('http://localhost:4242/health')
+      fetch('https://asn-disk-opera-feature.trycloudflare.com/health')
         .then(r => r.json())
         .then(data => { setMetrics(data); setUnavail(false); })
         .catch(() => setUnavail(true));
