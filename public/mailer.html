@@ -38,6 +38,7 @@
 
         if (campaignsError) throw campaignsError;
         state.campaigns = campaigns || [];
+        state.loading = false;
         render();
       } catch (err) {
         console.error('Error loading campaigns:', err);
