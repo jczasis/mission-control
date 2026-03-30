@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Infinity Mailer - NEW</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+  <div id="root">
+    <div class="bg-white border-b border-gray-200">
+      <div class="max-w-6xl mx-auto px-6 py-6 flex justify-between items-center">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">📧 Infinity Mailer</h1>
+          <p class="text-sm text-gray-500 mt-1">Aprobación de campañas</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto px-6 py-8">
+      <div id="loading" class="text-center py-12">
+        <p class="text-gray-600">Cargando...</p>
+      </div>
+      <div id="content" style="display:none;"></div>
+      <div id="error" style="display:none;" class="bg-red-50 border border-red-200 p-6 rounded text-red-800"></div>
+    </div>
+  </div>
+
+  <script>
+    const API = 'https://lirzzskabepwdlhvdmla.supabase.co/rest/v1';
+    const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxpcnp6c2thYmVwd2RsaHZkbWxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMDExMjcsImV4cCI6MjA4Nzg3NzEyN30.RDl7rokWNnW5nrPDFVndHwWd9rNv8Wr42M4V6SJbgKw';
+
+    let campaigns = [];
+    let selected = null;
+
+    function load() {
+      fetch(`${API}/email_campaigns?order=created_at.desc`, {
+        headers: { apikey: KEY, Authorization: `Bearer ${KEY}` }
+      })
+        .then(r => r.json())
+        .then(data => {
+          campaigns = data;
+          show();
+        })
+        .catch(err => {
+          document.getElementById('error').textContent = 'Error: ' + err.message;
+          document.getElementById('error').style.display = 'block';
+          document.getElementById('loading').style.display = 'none';
+        });
+    }
+
+    function show() {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+
+      let html = '<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">';
+      html += '<div class="bg-white rounded border p-4">';
+      html += `<div class="font-bold mb-4">Campañas (${campaigns.length})</div>`;
+      html += '<div class="space-y-2">';
+
+      campaigns.forEach(c => {
+        const cls = selected?.id === c.id ? 'bg-blue-100 border-l-4 border-blue-600' : '';
+        html += `<button class="w-full text-left p-3 hover:bg-gray-50 ${cls}" onclick="select('${c.id}')">
+          <div class="font-semibold text-sm">${c.name}</div>
+          <div class="text-xs text-gray-500">Status: <span class="font-bold">${c.status}</span></div>
+          <div class="text-xs text-gray-500">Contactos: ${c.recipient_count}</div>
+        </button>`;
+      });
+
+      html += '</div></div>';
+
+      if (selected) {
+        html += '<div class="lg:col-span-2 bg-white rounded border p-6">';
+        html += `<h2 class="text-2xl font-bold mb-4">${selected.name}</h2>`;
+        html += `<p class="text-sm text-gray-600 mb-4">Status: <span class="font-bold">${selected.status}</span> | Contactos: ${selected.recipient_count}</p>`;
+        html += `<div class="bg-gray-50 p-4 rounded mb-4"><p class="text-sm whitespace-pre-wrap">${selected.body || 'Sin contenido'}</p></div>`;
+
+        if (selected.status === 'draft') {
+          html += `<button onclick="approve('${selected.id}')" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded font-bold mb-4">✅ APROBAR</button>`;
+        } else {
+          html += `<div class="w-full bg-green-100 text-green-800 py-3 rounded text-center font-bold mb-4">✅ APROBADA</div>`;
+        }
+
+        html += '<div id="recipients" class="text-sm">Cargando destinatarios...</div>';
+        loadRecipients(selected.id);
+      }
+
+      html += '</div></div>';
+      document.getElementById('content').innerHTML = html;
+    }
+
+    function select(id) {
+      selected = campaigns.find(c => c.id === id);
+      show();
+    }
+
+    function approve(id) {
+      if (!confirm('¿Aprobar?')) return;
+      fetch(`${API}/email_campaigns?id=eq.${id}`, {
+        method: 'PATCH',
+        headers: {
+          apikey: KEY,
+          Authorization: `Bearer ${KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: 'approved', approved_at: new Date().toISOString() })
+      })
+        .then(r => {
+          if (r.ok) {
+            alert('✅ Aprobada');
+            load();
+          } else {
+            alert('❌ Error');
+          }
+        })
+        .catch(err => alert('Error: ' + err.message));
+    }
+
+    function loadRecipients(cid) {
+      fetch(`${API}/email_recipients?campaign_id=eq.${cid}&select=email,status`, {
+        headers: { apikey: KEY, Authorization: `Bearer ${KEY}` }
+      })
+        .then(r => r.json())
+        .then(data => {
+          let html = '<h3 class="font-bold mb-2">Destinatarios (' + data.length + ')</h3><div class="space-y-1">';
+          data.slice(0, 20).forEach(r => {
+            html += `<div class="text-xs bg-gray-50 p-2 rounded">${r.email} <span class="text-gray-500">${r.status}</span></div>`;
+          });
+          if (data.length > 20) html += `<p class="text-xs text-gray-500">... y ${data.length - 20} más</p>`;
+          html += '</div>';
+          document.getElementById('recipients').innerHTML = html;
+        });
+    }
+
+    load();
+  </script>
+</body>
+</html>
