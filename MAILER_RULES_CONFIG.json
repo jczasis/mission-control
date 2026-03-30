@@ -1,0 +1,242 @@
+{
+  "campaign": {
+    "system": "Infinity Mailer - Mission Control Integration",
+    "provider": "Infinity Box - Cajas de Cartón Corrugado",
+    "owner": "Juan Carlos Zuhlsdorf",
+    "email": "juan@infinitybox.cl",
+    "phone": "+56927968415",
+    "website": "www.infinitybox.cl"
+  },
+
+  "emailTemplate": {
+    "subject": "Cajas de cartón corrugado a medida para industria",
+    "format": "plaintext",
+    "body": "Hola,\n\nEn Infinity Box fabricamos cajas de cartón corrugado personalizadas\npara operaciones industriales y logísticas.\n\nNuestro foco es que cada caja cumpla tres objetivos:\n1) proteger bien el producto,\n2) optimizar costos de empaque y transporte,\n3) mantener una presentación profesional de marca.\n\nTrabajamos con corrugadora propia, certificación HACCP y ensayos de ECT\n(próximamente BCT), para asegurar consistencia técnica en producción.\n\nSi nos compartes medidas, gramaje actual y volumen mensual de un formato\nque usen hoy, te enviamos una cotización comparativa.\n\n¿Te interesa que lo revisemos con 1 formato para validar rápido?\n\nJuan\nInfinity Box · juan@infinitybox.cl · +56927968415 · www.infinitybox.cl",
+    "contentType": "text/plain",
+    "notes": "Plain text para mejor deliverability, sin attachments, firma manual"
+  },
+
+  "sendingRules": {
+    "maxPerDomain": 1,
+    "description": "Máximo 1 email por dominio/empresa para evitar spam, ban de IP, blacklisting",
+    "delayRange": {
+      "min": 20,
+      "max": 55,
+      "unit": "seconds",
+      "description": "Delay aleatorio entre emails para anti-detección"
+    },
+    "maxPerDay": 20,
+    "description_maxPerDay": "Máximo 20 emails por día (Monday-Friday)",
+    "businessHours": {
+      "start": 9,
+      "end": 18,
+      "timezone": "America/Santiago",
+      "daysOfWeek": [1, 2, 3, 4, 5],
+      "requiresForceFlag": true,
+      "description": "Envíos solo L-V 09:00-18:59 CL (horario laboral), --force para exceptions"
+    }
+  },
+
+  "validationRules": {
+    "excludeGovernment": {
+      "enabled": true,
+      "reason": "Gobierno/municipalidades no target, compliance",
+      "domains": [
+        "gob.cl",
+        "muni.cl",
+        "carabineros.cl",
+        "pdi.cl",
+        "chilecompra.cl",
+        "tesoro.cl",
+        "direcciontrabajo.cl"
+      ]
+    },
+    "excludeLicitacion": {
+      "enabled": true,
+      "reason": "Licitación pública = procurement formal, no cold outreach",
+      "keywords": [
+        "licitacion",
+        "chilecompra",
+        "padron",
+        "proveedores publicos"
+      ]
+    },
+    "excludeGenericEmails": {
+      "enabled": true,
+      "reason": "Emails genéricos = baja conversión, higher bounce rate",
+      "patterns": [
+        "info@",
+        "contacto@",
+        "admin@",
+        "noreply@",
+        "support@",
+        "soporte@",
+        "ventas@",
+        "empresa@",
+        "test@",
+        "example@"
+      ]
+    },
+    "excludeTestDomains": {
+      "enabled": true,
+      "domains": [
+        "test.cl",
+        "example.com",
+        "localhost",
+        "gmail.test"
+      ]
+    },
+    "requireValidDNS": {
+      "enabled": true,
+      "description": "Validar que dominio resuelve (MX records)"
+    },
+    "noDuplicates": {
+      "enabled": true,
+      "description": "No repetir emails enviados previamente en últimos 30 días"
+    }
+  },
+
+  "bounceManagement": {
+    "enabled": true,
+    "classification": {
+      "hardBounce": {
+        "codes": ["5.1.1", "5.4.4"],
+        "action": "blacklist_email",
+        "description": "Permanente: usuario no existe, dominio rechaza"
+      },
+      "softBounce": {
+        "codes": ["4.2.1", "4.3.2", "4.5.0"],
+        "action": "retry_next_day",
+        "maxRetries": 3,
+        "description": "Temporal: mailbox full, server timeout"
+      }
+    },
+    "monitoring": {
+      "intervalMinutes": 30,
+      "lookbackHours": 24
+    },
+    "thresholds": {
+      "hardBounceRateAlert": 5,
+      "softBounceRateAlert": 10,
+      "autoFauseIfBounceRateOver": 20,
+      "description": "Si bounce > 20% en una hora = PAUSE automático + alert"
+    }
+  },
+
+  "segmentation": {
+    "primaryTarget": "Santiago y Región Metropolitana",
+    "companySizeRange": {
+      "min": 20,
+      "max": 500,
+      "description": "Sweet spot: medianas empresas con operaciones formales"
+    },
+    "targetSectors": [
+      "Alimentos",
+      "Retail",
+      "Manufactura",
+      "Logística",
+      "Distribución"
+    ],
+    "decisionMakers": [
+      "Gerente Operaciones",
+      "Jefe Compras",
+      "Owner/Dueño",
+      "Gerente Logística"
+    ],
+    "excludeSectors": [
+      "Gobierno",
+      "Municipalidades",
+      "Telecom (high bounce rate)"
+    ]
+  },
+
+  "approvalWorkflow": {
+    "mode": "approval_required",
+    "steps": [
+      "1. Crear campaña (Draft)",
+      "2. Validar preflight (checks de reglas)",
+      "3. Mostrar preview + estadísticas",
+      "4. Esperar aprobación explícita de Juan",
+      "5. Si aprobado: cambiar status a Approved",
+      "6. Juan programa: cambiar status a Scheduled",
+      "7. Auto-envío a la hora (futuro cron)"
+    ],
+    "preflight": {
+      "checks": [
+        "Máximo 1 por dominio",
+        "Horario CL (L-V 09:00-18:59)",
+        "Sin emails genéricos",
+        "Sin gobierno/municipalidades",
+        "Sin bounce previo (verificar blacklist)",
+        "Sin duplicados últimos 30 días"
+      ],
+      "outputFormat": "HTML report con detalles de validación"
+    }
+  },
+
+  "auditing": {
+    "enabled": true,
+    "logsAllActions": true,
+    "tables": [
+      "email_campaigns",
+      "email_recipients",
+      "email_history",
+      "outreach_bounces",
+      "blacklist_emails"
+    ],
+    "retentionDays": 90
+  },
+
+  "integrations": {
+    "supabase": {
+      "enabled": true,
+      "tables": {
+        "campaigns": "email_campaigns",
+        "recipients": "email_recipients",
+        "history": "email_history",
+        "bounces": "outreach_bounces",
+        "blacklistEmails": "blacklist_emails",
+        "templates": "email_templates"
+      }
+    },
+    "zoho": {
+      "enabled": true,
+      "description": "Para envío real (cuando conectes)"
+    },
+    "telegram": {
+      "enabled": true,
+      "alerts": "Notificar a Juan si bounce > 20% o error"
+    }
+  },
+
+  "quality": {
+    "emailContentQuality": {
+      "score": "7/10",
+      "strengths": [
+        "Pitch estructurado (Problema → Solución → Validación)",
+        "Proof points reales (HACCP, ECT, corrugadora propia)",
+        "CTA clara: '¿Te interesa que lo revisemos con 1 formato?'",
+        "Tone professional pero personal (firma Juan)",
+        "Plain text = mejor deliverability"
+      ],
+      "improvements": [
+        "Corregir typo: 'Si nos compartas' → 'Si nos compartes'",
+        "Agregar personalización: nombre empresa, sector",
+        "Agregar diferenciador explícito vs competencia",
+        "CTA más fuerte: '¿Si compartes medidas, te hago cotización mañana?'"
+      ]
+    }
+  },
+
+  "metadata": {
+    "createdDate": "2026-03-30",
+    "lastUpdated": "2026-03-30",
+    "version": "1.0",
+    "mergedFrom": [
+      "config.json (mailing-infinity agent)",
+      "AUDIT_CRITERIOS.md",
+      "CLAUDE.md"
+    ],
+    "notes": "Todas las reglas del agente anterior integradas en el nuevo Mailer"
+  }
+}

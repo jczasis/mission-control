@@ -1,0 +1,194 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║            INFINITY MAILER - ARQUITECTURA TÉCNICA (30 Mar 2026)            ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          🖥️  FRONTEND (React 19)                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  App.tsx (Router v6)                                                         │
+│  ├── / (Dashboard)                                                           │
+│  │   └── MailerCard.tsx                                                      │
+│  │       • Tarjeta resumen (4 stats: pending, scheduled, delivered, bounce)  │
+│  │       • Botón "Abrir" → Link to /mailer                                   │
+│  │       • useEffect + useState para refresh cada 60s                        │
+│  │       • Llama: getScheduledTomorrow(), getMailerStats()                  │
+│  │                                                                            │
+│  └── /mailer (MailerPage)                                                    │
+│      ├── Tab 1: Campañas                                                     │
+│      │   ├── Sidebar: Lista clickeable (filtro por status)                  │
+│      │   └── Panel derecha:                                                 │
+│      │       • Detalles campaña                                             │
+│      │       • Stats 4-grid (total, enviados, delivered, bounces)          │
+│      │       • Action buttons (Aprobar → Programar → Enviar)               │
+│      │       • Preview email                                                │
+│      │       • Tabla destinatarios con status individual                   │
+│      │                                                                        │
+│      ├── Tab 2: Nueva                                                        │
+│      │   • Form: Nombre, Asunto, Body, Destinatarios (CSV)                 │
+│      │   • onSubmit: createCampaign() + addRecipients()                    │
+│      │   • parseRecipients: email,nombre,empresa CSV                       │
+│      │                                                                        │
+│      └── Tab 3: Templates                                                    │
+│          • Grid de templates reutilizables                                  │
+│          • Categorías: SEIA, Infinity, VersaSteel, General                 │
+│          • Botón "Usar" → pre-rellena form                                  │
+│                                                                               │
+│  Estilos:                                                                     │
+│  • Tailwind CSS (bg-white, border-gray-200, etc)                           │
+│  • Lucide React icons (Mail, Plus, Eye, Check, X, Clock, etc)             │
+│  • Responsive: grid cols ajusta por breakpoint                              │
+│                                                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          📡 API CLIENT (TypeScript)                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  src/lib/api/mailer.ts                                                       │
+│  ├── Tipos TypeScript:                                                       │
+│  │   • EmailCampaign { id, name, subject, status, ...}                     │
+│  │   • EmailRecipient { id, campaign_id, email, status, ...}              │
+│  │   • MailerStats { pending_approval, scheduled, ...}                     │
+│  │                                                                            │
+│  ├── Campaign Operations:                                                    │
+│  │   • getCampaigns() → SELECT * ORDER BY created_at DESC                 │
+│  │   • createCampaign() → INSERT + return id                               │
+│  │   • approveCampaign(id, actor) → UPDATE status='approved'              │
+│  │   • scheduleCampaign(id, date) → UPDATE status='scheduled'             │
+│  │   • markAsSent(id) → UPDATE status='sent'                              │
+│  │                                                                            │
+│  ├── Recipient Operations:                                                   │
+│  │   • getRecipients(campaignId) → SELECT para tabla                       │
+│  │   • addRecipients(campaignId, []) → bulk INSERT                         │
+│  │   • markRecipientAsDelivered(id) → UPDATE status                       │
+│  │   • markRecipientAsBounced(id, reason) → UPDATE status                 │
+│  │                                                                            │
+│  ├── Query Helpers (para dashboard):                                         │
+│  │   • getMailerStats() → SELECT FROM vw_mailer_stats                      │
+│  │   • getScheduledTomorrow() → SELECT WHERE DATE(scheduled_for) = today+1│
+│  │                                                                            │
+│  ├── Audit:                                                                  │
+│  │   • logAction(campaignId, action, actor, details) → INSERT history      │
+│  │   • getCampaignHistory(campaignId) → SELECT history                     │
+│  │                                                                            │
+│  └── Transporte:                                                             │
+│      • Supabase client: createClient(URL, ANON_KEY)                        │
+│      • .from('table').select/insert/update/delete                          │
+│      • Error handling: try/catch con console.error                         │
+│                                                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        🗄️  BASE DE DATOS (PostgreSQL)                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  Tablas:                                                                      │
+│                                                                               │
+│  email_campaigns                                                              │
+│  ├── id (UUID primary key)                                                  │
+│  ├── name, subject, body, html_body (TEXT)                                 │
+│  ├── status (draft|pending|approved|scheduled|sent|failed)                 │
+│  ├── created_by, created_at                                                │
+│  ├── approved_by, approved_at (nullable)                                   │
+│  ├── scheduled_for, sent_at (nullable)                                     │
+│  ├── recipient_count, delivered_count, bounce_count, failed_count (INT)   │
+│  ├── notes, metadata (JSONB)                                               │
+│  └── updated_at                                                             │
+│      INDEX: status, scheduled_for (query optimization)                     │
+│                                                                               │
+│  email_recipients (FK → email_campaigns)                                    │
+│  ├── id, campaign_id (FK DELETE CASCADE)                                   │
+│  ├── email, name, company (TEXT)                                           │
+│  ├── lead_source (SEIA|manual|infinity_import|...)                         │
+│  ├── status (pending|sent|delivered|bounced|failed|unsubscribed)          │
+│  ├── sent_at, delivered_at, bounce_reason (nullable)                       │
+│  ├── opened, clicked (BOOLEAN)                                             │
+│  ├── metadata (JSONB)                                                      │
+│  └── created_at, updated_at                                                │
+│      INDEX: campaign_id, email, status                                     │
+│                                                                               │
+│  email_history (Auditoría)                                                  │
+│  ├── id (UUID)                                                              │
+│  ├── campaign_id (FK), recipient_id (FK nullable)                          │
+│  ├── action (created|approved|rejected|scheduled|sent|bounced|...)        │
+│  ├── actor (usuario), details (descripción)                                │
+│  ├── error_code, error_message (nullable)                                  │
+│  ├── metadata (JSONB)                                                      │
+│  └── created_at                                                             │
+│      INDEX: campaign_id, action (auditoría queries)                        │
+│                                                                               │
+│  email_templates                                                             │
+│  ├── id, name (UNIQUE)                                                      │
+│  ├── subject, body, html_body (TEXT)                                       │
+│  ├── variables (JSONB: ["{{company_name}}", "{{contact_name}}"])          │
+│  ├── category (SEIA|infinity|versasteel|general)                          │
+│  └── created_at, updated_at                                                │
+│                                                                               │
+│  Vistas SQL:                                                                 │
+│  ├── vw_campaign_summary: resumen de todas (para listing)                  │
+│  ├── vw_scheduled_tomorrow: campañas para mañana (para dashboard)         │
+│  └── vw_mailer_stats: totales globales (delivered, bounced, pending)      │
+│                                                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          🔄 FLUJO DE DATOS                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  CREAR CAMPAÑA:                                                              │
+│  1. User → Form /mailer (Nueva tab)                                         │
+│  2. onSubmit → createCampaign() → API → INSERT email_campaigns            │
+│  3. Parse CSV recipients → addRecipients() → API → INSERT email_recipients│
+│  4. logAction(action='created') → INSERT email_history                     │
+│  5. UI: "Campaña creada" → reload tab Campañas                            │
+│                                                                               │
+│  APROBAR CAMPAÑA:                                                            │
+│  1. User → Click botón azul "Aprobar"                                       │
+│  2. approveCampaign(id, 'juan@grupoempex.com') → UPDATE status='approved' │
+│  3. logAction(action='approved') → INSERT history                          │
+│  4. UI: Status badge blue "APPROVED", botón cambia a "Programar"          │
+│                                                                               │
+│  PROGRAMAR ENVÍO:                                                            │
+│  1. User → Click "Programar para mañana 09:00"                            │
+│  2. scheduleCampaign(id, tomorrow 09:00) → UPDATE status='scheduled'      │
+│  3. logAction(action='scheduled') → INSERT history                         │
+│  4. UI: Status → purple "SCHEDULED", aparece fecha/hora                    │
+│                                                                               │
+│  DASHBOARD MONITORING:                                                       │
+│  1. MailerCard useEffect → getScheduledTomorrow() cada 60s                │
+│  2. MailerCard useEffect → getMailerStats() cada 60s                      │
+│  3. Render: "2 campañas para mañana", "15 entregados", etc               │
+│                                                                               │
+│  (FUTURO) CRON ENVÍO AUTOMÁTICO:                                            │
+│  1. Cron job ejecuta cada minuto                                            │
+│  2. Query: SELECT * FROM email_campaigns WHERE status='scheduled'          │
+│       AND scheduled_for <= NOW()                                            │
+│  3. Para cada campaña, obtener recipients y ENVIAR (SMTP/API)              │
+│  4. Actualizar: email_recipients.status → 'sent'/'delivered'/'bounced'   │
+│  5. Actualizar: email_campaigns.sent_at, delivered_count                   │
+│  6. logAction(action='sent') para auditoría                                │
+│                                                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          🔐 SEGURIDAD & ESCALABILIDAD                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  Implementado:                                                                │
+│  • Typed API: TypeScript evita errores en runtime                           │
+│  • SQL Injection: Supabase prepared statements (auto)                       │
+│  • RLS (Row Level Security): Ready pero comentado (activar cuando auth)    │
+│  • Auditoría: Cada acción logged en email_history                          │
+│  • Índices: campaña (status, scheduled_for), recipient (campaign, status)  │
+│                                                                               │
+│  A Futuro:                                                                    │
+│  • Webhooks Supabase: triggear en cambio de status                         │
+│  • Rate limiting: prevenir abuse de API                                     │
+│  • Encryption: sensibles data (emails, bounce_reason)                      │
+│  • Multi-tenant: columna "org_id" si escala                                │
+│                                                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+RESUMEN: 3-layer fullstack (React UI → TypeScript API → PostgreSQL) con
+auditoría, tipos, índices y flujo de aprobación.
