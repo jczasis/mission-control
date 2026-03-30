@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { CSS } from './styles.js';
 import { sGet, sSet } from './db.js';
+import { MailerCard } from './components/MailerCard';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const MASTER_KEY = 'Empex2026';
@@ -737,89 +738,7 @@ function LiveLogCard() {
 
 // ─── INFINITY MAILER CARD ─────────────────────────────────────────────────────
 function InfinityMailerCard() {
-  const [data, setData] = useState({
-    leads_today: 0,
-    leads_pending: 0,
-    leads_sent: 0,
-    bounce_rate: 0,
-    status: 'ok',
-    next_cron: '08:45 (L-J)',
-    last_run: null,
-  });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchMailerData = async () => {
-      try {
-        // Intenta leer desde Supabase table (future)
-        // Por ahora, calcula desde datos en localStorage del proceso
-        const pendingLS = await sGet('imailer_pending_count') || '0';
-        const sentLS = await sGet('imailer_sent_count') || '0';
-        const bounceLS = await sGet('imailer_bounce_rate') || '0';
-
-        const pending = parseInt(pendingLS) || 0;
-        const sent = parseInt(sentLS) || 0;
-        const bounces = parseFloat(bounceLS) || 0;
-
-        setData({
-          leads_today: pending + sent,
-          leads_pending: pending,
-          leads_sent: sent,
-          bounce_rate: bounces,
-          status: bounces > 20 ? 'warn' : (pending === 0 && sent === 0 ? 'off' : 'ok'),
-          next_cron: '08:45 (L-J) / 09:00 (Envío)',
-          last_run: Date.now() - Math.random() * 3600000, // mock
-        });
-      } catch (e) {
-        console.error('Infinity Mailer fetch:', e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchMailerData();
-    const interval = setInterval(fetchMailerData, 60000); // sync cada minuto
-    return () => clearInterval(interval);
-  }, []);
-
-  if (loading) return <SkeletonCard cols={6} />;
-
-  const statusColor = data.status === 'ok' ? 'var(--acc)' : (data.status === 'warn' ? 'var(--amb)' : 'var(--red)');
-  const bounceColor = data.bounce_rate > 20 ? 'var(--red)' : 'var(--acc)';
-
-  return (
-    <div className="card-body">
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-        <div>
-          <div style={{ fontSize: '11px', color: 'var(--td)', textTransform: 'uppercase', marginBottom: '4px' }}>Leads Hoy</div>
-          <div style={{ fontSize: '24px', fontWeight: 600, color: 'var(--acc)' }}>{data.leads_today}</div>
-          <div style={{ fontSize: '9px', color: 'var(--td)', marginTop: '2px' }}>
-            {data.leads_pending} pendientes • {data.leads_sent} enviados
-          </div>
-        </div>
-        <div>
-          <div style={{ fontSize: '11px', color: 'var(--td)', textTransform: 'uppercase', marginBottom: '4px' }}>Bounces</div>
-          <div style={{ fontSize: '24px', fontWeight: 600, color: bounceColor }}>{data.bounce_rate.toFixed(1)}%</div>
-          <div style={{ fontSize: '9px', color: 'var(--td)', marginTop: '2px' }}>Tasa de rebote</div>
-        </div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '8px 0', borderTop: '1px solid var(--b)', borderBottom: '1px solid var(--b)' }}>
-        <div>
-          <span style={{ fontSize: '9px', color: 'var(--td)' }}>Estado</span>
-          <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span className="sys-dot" style={{ background: statusColor, width: '8px', height: '8px' }} />
-            <span style={{ fontSize: '11px', color: statusColor, fontWeight: 500 }}>{data.status.toUpperCase()}</span>
-          </div>
-        </div>
-        <div>
-          <span style={{ fontSize: '9px', color: 'var(--td)' }}>Próximo Cron</span>
-          <div style={{ marginTop: '4px', fontSize: '11px', color: 'var(--acc)' }}>{data.next_cron}</div>
-        </div>
-      </div>
-      <div style={{ marginTop: '8px', fontSize: '9px', color: 'var(--td)' }}>
-        Última ejecución: {data.last_run ? relTime(data.last_run) : '-'}
-      </div>
-    </div>
-  );
+  return <MailerCard />;
 }
 
 // ─── ALERTS CARD ─────────────────────────────────────────────────────────────
