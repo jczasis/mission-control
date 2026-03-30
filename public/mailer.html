@@ -437,8 +437,18 @@ infinitybox.cl</p>
       `;
     }
 
-    loadData();
-    setInterval(loadData, 30000);
+    // Esperar a que Supabase esté listo
+    document.addEventListener('DOMContentLoaded', () => {
+      loadData();
+      setInterval(loadData, 30000);
+    });
+
+    // Por si el evento se dispara antes de que el script se cargue
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadData);
+    } else {
+      loadData();
+    }
   </script>
 </body>
 </html>
