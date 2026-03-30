@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Infinity Mailer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-50">
+  <div id="app"></div>
+
+  <script>
+    const SUPABASE_URL = 'https://lirzzskabepwdlhvdmla.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxpcnp6c2thYmVwd2RsaHZkbWxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMDExMjcsImV4cCI6MjA4Nzg3NzEyN30.RDl7rokWNnW5nrPDFVndHwWd9rNv8Wr42M4V6SJbgKw';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let state = {
+      campaigns: [],
+      selectedCampaign: null,
+      activeTab: 'campaigns',
+      loading: true,
+      recipients: [],
+      newCampaignForm: {
+        name: '',
+        subject: '',
+        body: 'Cajas de cartón corrugado a medida para industria.\n\n¿Te interesa que lo revisemos?',
+        csv: ''
+      }
+    };
+
+    async function loadData() {
+      try {
+        const { data: campaigns, error: campaignsError } = await supabase
+          .from('email_campaigns')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (campaignsError) throw campaignsError;
+        state.campaigns = campaigns || [];
+        render();
+      } catch (err) {
+        console.error('Error loading campaigns:', err);
+        state.loading = false;
+        render();
+      }
+    }
+
+    async function handleCreateCampaign() {
+      const { name, subject, body, csv } = state.newCampaignForm;
+
+      if (!name || !subject || !body || !csv) {
+        alert('Llena todos los campos');
+        return;
+      }
+
+      try {
+        state.loading = true;
+        render();
+
+        const recipients = csv.split('\n')
+          .map(line => {
+            const [email, nombre, empresa] = line.split(',').map(s => s.trim());
+            return { email, nombre, empresa };
+          })
+          .filter(r => r.email && r.email.includes('@'));
+
+        const { data: campaign, error: campaignError } = await supabase
+          .from('email_campaigns')
+          .insert([{
+            name,
+            subject,
+            body,
+            status: 'draft',
+            created_by: 'sistema',
+            recipient_count: recipients.length,
+            is_infinity_box: true
+          }])
+          .select()
+          .single();
+
+        if (campaignError) throw campaignError;
+
+        if (recipients.length > 0) {
+          const recipientsData = recipients.map(r => ({
+            campaign_id: campaign.id,
+            email: r.email,
+            name: r.nombre,
+            company: r.empresa,
+            status: 'pending'
+          }));
+
+          const { error: recipientsError } = await supabase
+            .from('email_recipients')
+            .insert(recipientsData);
+
+          if (recipientsError) throw recipientsError;
+        }
+
+        await supabase
+          .from('email_history')
+          .insert([{
+            campaign_id: campaign.id,
+            action: 'created',
+            actor: 'sistema',
+            details: `Campaña creada: ${name}`
+          }]);
+
+        state.newCampaignForm = {
+          name: '',
+          subject: '',
+          body: 'Cajas de cartón corrugado a medida para industria.\n\n¿Te interesa que lo revisemos?',
+          csv: ''
+        };
+        state.activeTab = 'campaigns';
+
+        alert(`✅ Campaña "${name}" creada con ${recipients.length} destinatarios`);
+        await loadData();
+      } catch (err) {
+        console.error('Error creating campaign:', err);
+        alert(`❌ Error: ${err.message}`);
+        state.loading = false;
+        render();
+      }
+    }
+
+    async function approveCampaign(campaignId) {
+      try {
+        const { error } = await supabase
+          .from('email_campaigns')
+          .update({
+            status: 'approved',
+            approved_by: 'usuario',
+            approved_at: new Date().toISOString()
+          })
+          .eq('id', campaignId);
+
+        if (error) throw error;
+
+        await supabase
+          .from('email_history')
+          .insert([{
+            campaign_id: campaignId,
+            action: 'approved',
+            actor: 'usuario',
+            details: 'Campaña aprobada'
+          }]);
+
+        await loadData();
+        alert('✅ Campaña aprobada');
+      } catch (err) {
+        alert(`❌ Error: ${err.message}`);
+      }
+    }
+
+    async function scheduleCampaign(campaignId) {
+      const date = prompt('Fecha para envío (YYYY-MM-DD):');
+      if (!date) return;
+
+      try {
+        const { error } = await supabase
+          .from('email_campaigns')
+          .update({
+            status: 'scheduled',
+            scheduled_for: new Date(date).toISOString()
+          })
+          .eq('id', campaignId);
+
+        if (error) throw error;
+
+        await supabase
+          .from('email_history')
+          .insert([{
+            campaign_id: campaignId,
+            action: 'scheduled',
+            actor: 'usuario',
+            details: `Programada para ${date}`
+          }]);
+
+        await loadData();
+        alert(`✅ Campaña programada para ${date}`);
+      } catch (err) {
+        alert(`❌ Error: ${err.message}`);
+      }
+    }
+
+    async function selectCampaign(campaign) {
+      state.selectedCampaign = campaign;
+
+      const { data: recipients, error } = await supabase
+        .from('email_recipients')
+        .select('*')
+        .eq('campaign_id', campaign.id);
+
+      if (!error) {
+        state.recipients = recipients || [];
+      }
+
+      render();
+    }
+
+    function render() {
+      const app = document.getElementById('app');
+
+      app.innerHTML = `
+        <div class="min-h-screen bg-gray-50">
+          <div class="bg-white border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
+              <div>
+                <h1 class="text-3xl font-bold text-gray-900">📧 Infinity Mailer</h1>
+                <p class="text-sm text-gray-500 mt-1">Campaña de emails para Infinity Box</p>
+              </div>
+              <a href="/" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded font-semibold transition">
+                ← Dashboard
+              </a>
+            </div>
+          </div>
+
+          <div class="max-w-7xl mx-auto px-6 py-4 flex gap-4 border-b border-gray-200">
+            ${['campaigns', 'new', 'templates'].map(tab => `
+              <button
+                onclick="state.activeTab='${tab}'; render()"
+                class="px-4 py-2 font-semibold rounded-t transition ${
+                  state.activeTab === tab
+                    ? 'bg-white text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }"
+              >
+                ${tab === 'campaigns' ? 'Campañas' : tab === 'new' ? 'Nueva' : 'Templates'}
+              </button>
+            `).join('')}
+          </div>
+
+          <div class="max-w-7xl mx-auto px-6 py-6">
+            ${state.activeTab === 'campaigns' ? renderCampaignsList() : ''}
+            ${state.activeTab === 'new' ? renderNewForm() : ''}
+            ${state.activeTab === 'templates' ? renderTemplates() : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCampaignsList() {
+      if (state.loading) return '<p class="text-gray-600">Cargando...</p>';
+
+      if (state.campaigns.length === 0) {
+        return '<p class="text-gray-600">No hay campañas. <a href="#" onclick="state.activeTab=\'new\'; render(); return false" class="text-blue-600">Crear una</a></p>';
+      }
+
+      return `
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="bg-white rounded border border-gray-200">
+            <div class="p-4 bg-gray-50 border-b font-semibold">Campañas (${state.campaigns.length})</div>
+            <div class="divide-y max-h-96 overflow-y-auto">
+              ${state.campaigns.map(c => `
+                <button
+                  onclick="selectCampaign(${JSON.stringify(c).replace(/"/g, '&quot;')}); render()"
+                  class="w-full text-left p-3 hover:bg-gray-50 transition ${state.selectedCampaign?.id === c.id ? 'bg-blue-50 border-l-4 border-blue-600' : ''}"
+                >
+                  <div class="font-semibold text-sm text-gray-900">${c.name}</div>
+                  <div class="text-xs text-gray-500 mt-1">Status: ${c.status}</div>
+                  <div class="text-xs text-gray-500">Destinatarios: ${c.recipient_count}</div>
+                </button>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="lg:col-span-2">
+            ${state.selectedCampaign ? `
+              <div class="bg-white rounded border border-gray-200 p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">${state.selectedCampaign.name}</h2>
+
+                <div class="grid grid-cols-4 gap-4 mb-6">
+                  <div class="text-center">
+                    <p class="text-xs text-gray-600">Total</p>
+                    <p class="text-lg font-bold text-gray-900">${state.selectedCampaign.recipient_count}</p>
+                  </div>
+                  <div class="text-center">
+                    <p class="text-xs text-gray-600">Entregados</p>
+                    <p class="text-lg font-bold text-green-600">${state.selectedCampaign.delivered_count}</p>
+                  </div>
+                  <div class="text-center">
+                    <p class="text-xs text-gray-600">Rebotes</p>
+                    <p class="text-lg font-bold text-red-600">${state.selectedCampaign.bounce_count}</p>
+                  </div>
+                  <div class="text-center">
+                    <p class="text-xs text-gray-600">Status</p>
+                    <p class="text-lg font-bold text-blue-600">${state.selectedCampaign.status}</p>
+                  </div>
+                </div>
+
+                <div class="space-y-4 mb-6">
+                  <div>
+                    <p class="text-xs font-semibold text-gray-600 mb-1">Asunto</p>
+                    <p class="text-sm text-gray-900">${state.selectedCampaign.subject}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs font-semibold text-gray-600 mb-1">Mensaje</p>
+                    <p class="text-sm text-gray-700 whitespace-pre-line">${state.selectedCampaign.body}</p>
+                  </div>
+                </div>
+
+                <div class="flex gap-2">
+                  ${state.selectedCampaign.status === 'draft' ? `
+                    <button
+                      onclick="approveCampaign('${state.selectedCampaign.id}')"
+                      class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-semibold"
+                    >
+                      ✓ Aprobar
+                    </button>
+                  ` : ''}
+                  ${state.selectedCampaign.status === 'approved' ? `
+                    <button
+                      onclick="scheduleCampaign('${state.selectedCampaign.id}')"
+                      class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold"
+                    >
+                      📅 Programar
+                    </button>
+                  ` : ''}
+                </div>
+
+                <div class="mt-6 pt-6 border-t border-gray-200">
+                  <h3 class="font-semibold text-gray-900 mb-3">Destinatarios (${state.recipients.length})</h3>
+                  <div class="max-h-48 overflow-y-auto space-y-2">
+                    ${state.recipients.slice(0, 10).map(r => `
+                      <div class="text-sm bg-gray-50 p-2 rounded flex justify-between">
+                        <span>${r.email}</span>
+                        <span class="text-xs text-gray-500">${r.status}</span>
+                      </div>
+                    `).join('')}
+                    ${state.recipients.length > 10 ? `<p class="text-xs text-gray-500">... y ${state.recipients.length - 10} más</p>` : ''}
+                  </div>
+                </div>
+              </div>
+            ` : '<p class="text-gray-600">Selecciona una campaña</p>'}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderNewForm() {
+      return `
+        <div class="max-w-2xl mx-auto bg-white rounded border border-gray-200 p-6">
+          <h2 class="text-2xl font-bold text-gray-900 mb-6">Nueva Campaña</h2>
+
+          <form onsubmit="return false" class="space-y-4">
+            <div>
+              <label class="block text-sm font-semibold text-gray-900 mb-2">Nombre</label>
+              <input
+                type="text"
+                placeholder="Ej: Test 30 Marzo"
+                value="${state.newCampaignForm.name}"
+                onchange="state.newCampaignForm.name = this.value"
+                class="w-full px-3 py-2 border border-gray-300 rounded"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-gray-900 mb-2">Asunto</label>
+              <input
+                type="text"
+                placeholder="Cajas de cartón a medida para industria"
+                value="${state.newCampaignForm.subject}"
+                onchange="state.newCampaignForm.subject = this.value"
+                class="w-full px-3 py-2 border border-gray-300 rounded"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-gray-900 mb-2">Mensaje</label>
+              <textarea
+                placeholder="Mensaje del email"
+                value="${state.newCampaignForm.body}"
+                onchange="state.newCampaignForm.body = this.value"
+                class="w-full px-3 py-2 border border-gray-300 rounded h-24"
+              ></textarea>
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-gray-900 mb-2">Destinatarios (CSV)</label>
+              <textarea
+                placeholder="email,nombre,empresa&#10;test1@example.com,Test User,Company"
+                value="${state.newCampaignForm.csv}"
+                onchange="state.newCampaignForm.csv = this.value"
+                class="w-full px-3 py-2 border border-gray-300 rounded h-32 font-mono text-xs"
+              ></textarea>
+              <p class="text-xs text-gray-500 mt-1">Formato: email,nombre,empresa (una por línea)</p>
+            </div>
+
+            <button
+              type="button"
+              onclick="handleCreateCampaign()"
+              class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded font-semibold"
+            >
+              + Crear Campaña
+            </button>
+          </form>
+        </div>
+      `;
+    }
+
+    function renderTemplates() {
+      return `
+        <div class="bg-white rounded border border-gray-200 p-6">
+          <h2 class="text-xl font-bold text-gray-900 mb-4">Templates</h2>
+          <div class="space-y-4">
+            <div class="p-4 bg-gray-50 rounded border border-gray-200">
+              <h3 class="font-bold text-gray-900 mb-2">Template: Infinity Box</h3>
+              <p class="text-sm text-gray-600 mb-3">
+                Asunto: Cajas de cartón corrugado a medida para industria
+              </p>
+              <p class="text-sm text-gray-700 whitespace-pre-line mb-3">Cajas de cartón corrugado a medida para industria.
+
+Con corrugadora propia, HACCP, ECT certificado.
+Proteger productos, optimizar costos, presentación marca.
+
+¿Te interesa que lo revisemos?
+
+Juan
++56 9 XXXX XXXX
+infinitybox.cl</p>
+              <button
+                onclick="
+                  state.newCampaignForm.subject = 'Cajas de cartón corrugado a medida para industria';
+                  state.newCampaignForm.body = 'Cajas de cartón corrugado a medida para industria.\n\nCon corrugadora propia, HACCP, ECT certificado.\nProteger productos, optimizar costos, presentación marca.\n\n¿Te interesa que lo revisemos?\n\nJuan';
+                  state.activeTab = 'new';
+                  render();
+                "
+                class="text-blue-600 hover:text-blue-700 font-semibold text-sm"
+              >
+                Usar este template →
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    loadData();
+    setInterval(loadData, 30000);
+  </script>
+</body>
+</html>
