@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { Mail, ArrowRight, AlertCircle } from 'lucide-react';
 import { getScheduledTomorrow, getMailerStats } from '../lib/api/mailer';
 
@@ -68,13 +67,13 @@ export function MailerCard() {
           <Mail className="w-5 h-5 text-blue-600" />
           Infinity Mailer
         </h2>
-        <Link
-          to="/mailer"
-          className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition"
+        <button
+          onClick={() => window.location.href = '/mailer.html'}
+          className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition cursor-pointer"
           title="Abrir panel de control completo"
         >
           Abrir <ArrowRight className="w-4 h-4" />
-        </Link>
+        </button>
       </div>
 
       {error && (
