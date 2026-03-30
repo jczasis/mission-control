@@ -3,9 +3,8 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!.*\\.html).*)",
       "destination": "/index.html"
     }
-  ],
-  "cleanUrls": false
+  ]
 }
