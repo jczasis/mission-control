@@ -1,0 +1,10 @@
+{
+  "version": 3,
+  "include": [
+    "/hola.html",
+    "/mailer.html",
+    "/mailer-app.html",
+    "/mailer-new.html",
+    "/mailer2.html"
+  ]
+}
