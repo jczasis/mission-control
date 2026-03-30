@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Infinity Mailer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+  <div class="min-h-screen">
+    <!-- Header -->
+    <div class="bg-white border-b border-gray-200">
+      <div class="max-w-6xl mx-auto px-6 py-6">
+        <h1 class="text-3xl font-bold text-gray-900">📧 Infinity Mailer</h1>
+        <p class="text-sm text-gray-500 mt-1">Aprobación de campañas de email</p>
+      </div>
+    </div>
+
+    <!-- Main -->
+    <div class="max-w-6xl mx-auto px-6 py-8">
+      <div id="app"></div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://lirzzskabepwdlhvdmla.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxpcnp6c2thYmVwd2RsaHZkbWxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMDExMjcsImV4cCI6MjA4Nzg3NzEyN30.RDl7rokWNnW5nrPDFVndHwWd9rNv8Wr42M4V6SJbgKw';
+
+    let campaigns = [];
+    let selected = null;
+
+    function fetchCampaigns() {
+      document.getElementById('app').innerHTML = '<div class="text-center py-12"><p class="text-gray-600">Cargando...</p></div>';
+
+      const url = `${SUPABASE_URL}/rest/v1/email_campaigns?select=*&order=created_at.desc`;
+      const opts = {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`
+        }
+      };
+
+      fetch(url, opts)
+        .then(r => r.json())
+        .then(data => {
+          campaigns = data;
+          render();
+        })
+        .catch(err => {
+          document.getElementById('app').innerHTML = `<div class="bg-red-50 border border-red-200 p-6 rounded text-red-800"><p>${err.message}</p></div>`;
+        });
+    }
+
+    function selectCampaign(id) {
+      selected = campaigns.find(c => c.id === id);
+      render();
+      loadRecipients(id);
+    }
+
+    function approveCampaign(id) {
+      if (!confirm('¿Aprobar esta campaña?')) return;
+
+      const url = `${SUPABASE_URL}/rest/v1/email_campaigns?id=eq.${id}`;
+      const opts = {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: 'approved', approved_at: new Date().toISOString() })
+      };
+
+      fetch(url, opts)
+        .then(r => {
+          if (r.ok) {
+            alert('✅ Campaña aprobada');
+            fetchCampaigns();
+          } else {
+            alert('❌ Error al aprobar');
+          }
+        })
+        .catch(err => alert('Error: ' + err.message));
+    }
+
+    function loadRecipients(cid) {
+      const url = `${SUPABASE_URL}/rest/v1/email_recipients?campaign_id=eq.${cid}&select=email,status&limit=50`;
+      const opts = {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`
+        }
+      };
+
+      fetch(url, opts)
+        .then(r => r.json())
+        .then(data => {
+          const recipientsDiv = document.getElementById('recipients-list');
+          if (recipientsDiv) {
+            recipientsDiv.innerHTML = data.map(r => `
+              <div class="text-sm bg-gray-50 p-2 rounded flex justify-between">
+                <span>${r.email}</span>
+                <span class="text-gray-500">${r.status}</span>
+              </div>
+            `).join('');
+          }
+        });
+    }
+
+    function render() {
+      let html = `
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Lista -->
+          <div class="bg-white rounded border border-gray-200">
+            <div class="px-4 py-3 bg-gray-50 border-b font-semibold text-sm">Campañas (${campaigns.length})</div>
+            <div class="divide-y">
+      `;
+
+      campaigns.forEach(c => {
+        const active = selected?.id === c.id;
+        html += `
+          <button
+            onclick="selectCampaign('${c.id}')"
+            class="w-full text-left p-3 hover:bg-gray-50 ${active ? 'bg-blue-50 border-l-4 border-blue-600' : ''}"
+          >
+            <div class="font-semibold text-sm text-gray-900">${c.name}</div>
+            <div class="text-xs text-gray-500 mt-1">Status: <span class="font-bold ${c.status === 'draft' ? 'text-yellow-600' : 'text-green-600'}">${c.status}</span></div>
+            <div class="text-xs text-gray-500">Contactos: ${c.recipient_count}</div>
+          </button>
+        `;
+      });
+
+      html += `
+            </div>
+          </div>
+
+          <!-- Detalles -->
+          <div class="lg:col-span-2">
+      `;
+
+      if (!selected) {
+        html += '<div class="bg-white rounded border border-gray-200 p-6 text-center text-gray-500">Selecciona una campaña</div>';
+      } else {
+        html += `
+          <div class="bg-white rounded border border-gray-200 p-6">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">${selected.name}</h2>
+
+            <div class="grid grid-cols-4 gap-3 mb-6">
+              <div class="text-center bg-gray-50 p-3 rounded">
+                <p class="text-xs text-gray-600">Total</p>
+                <p class="text-xl font-bold">${selected.recipient_count}</p>
+              </div>
+              <div class="text-center bg-gray-50 p-3 rounded">
+                <p class="text-xs text-gray-600">Status</p>
+                <p class="text-sm font-bold ${selected.status === 'draft' ? 'text-yellow-600' : 'text-green-600'}">${selected.status.toUpperCase()}</p>
+              </div>
+              <div class="text-center bg-gray-50 p-3 rounded">
+                <p class="text-xs text-gray-600">Creado</p>
+                <p class="text-xs font-bold">${new Date(selected.created_at).toLocaleDateString('es-CL')}</p>
+              </div>
+              <div class="text-center bg-gray-50 p-3 rounded">
+                <p class="text-xs text-gray-600">Fuente</p>
+                <p class="text-xs font-bold">∞ Box</p>
+              </div>
+            </div>
+
+            <div class="bg-gray-50 p-4 rounded mb-6">
+              <p class="text-xs font-semibold text-gray-600 mb-1">📧 Asunto</p>
+              <p class="text-sm text-gray-900">${selected.subject || 'Sin asunto'}</p>
+              <p class="text-xs font-semibold text-gray-600 mt-3 mb-1">📝 Mensaje</p>
+              <p class="text-sm text-gray-700 whitespace-pre-wrap max-h-32 overflow-y-auto">${selected.body || 'Sin contenido'}</p>
+            </div>
+
+            ${selected.status === 'draft' ? `
+              <button
+                onclick="approveCampaign('${selected.id}')"
+                class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded font-semibold mb-6 transition"
+              >
+                ✅ APROBAR CAMPAÑA
+              </button>
+            ` : `
+              <div class="w-full bg-green-100 text-green-800 py-3 rounded text-center font-semibold mb-6">
+                ✅ YA APROBADA
+              </div>
+            `}
+
+            <div class="border-t pt-4">
+              <h3 class="font-semibold text-gray-900 mb-3">👥 Destinatarios</h3>
+              <div id="recipients-list" class="space-y-1 max-h-48 overflow-y-auto">
+                <p class="text-sm text-gray-500">Cargando...</p>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      html += `
+          </div>
+        </div>
+      `;
+
+      document.getElementById('app').innerHTML = html;
+    }
+
+    // Iniciar
+    fetchCampaigns();
+    setInterval(fetchCampaigns, 60000);
+  </script>
+</body>
+</html>
