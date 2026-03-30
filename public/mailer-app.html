@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinity Mailer - Gestión de Campañas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-gray-100">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-6 py-6">
+                <div class="flex items-center gap-3">
+                    <div class="text-3xl">📧</div>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">Infinity Mailer</h1>
+                        <p class="text-gray-600 text-sm">Campañas de email - Infinity Box</p>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main -->
+        <main class="max-w-7xl mx-auto px-6 py-12">
+            <!-- Tabs Navigation -->
+            <div class="flex gap-8 border-b border-gray-200 mb-8">
+                <button class="tab-btn active py-3 px-1 border-b-2 border-blue-600 text-blue-600 font-medium" data-tab="campaigns">
+                    📋 Campañas
+                </button>
+                <button class="tab-btn py-3 px-1 border-b-2 border-transparent text-gray-600 font-medium hover:text-gray-900" data-tab="new">
+                    ➕ Nueva
+                </button>
+                <button class="tab-btn py-3 px-1 border-b-2 border-transparent text-gray-600 font-medium hover:text-gray-900" data-tab="stats">
+                    📊 Estadísticas
+                </button>
+            </div>
+
+            <!-- Campaigns Tab -->
+            <div id="tab-campaigns" class="tab-content">
+                <div id="campaigns-grid" class="space-y-4"></div>
+                <div id="campaigns-empty" class="hidden text-center py-16">
+                    <div class="text-6xl mb-4">📭</div>
+                    <p class="text-gray-600 text-lg">Sin campañas aún. Crea una nueva.</p>
+                </div>
+            </div>
+
+            <!-- New Campaign Tab -->
+            <div id="tab-new" class="tab-content hidden">
+                <div class="bg-white rounded-lg shadow-lg p-8 max-w-2xl">
+                    <h2 class="text-2xl font-bold mb-6 text-gray-900">Nueva Campaña</h2>
+                    <form id="campaign-form" class="space-y-5">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre</label>
+                            <input type="text" name="name" required placeholder="Ej: Campaña Marzo 2026" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Asunto</label>
+                            <input type="text" name="subject" required placeholder="Ej: Nuevas cajas de cartón - Oferta especial" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Cuerpo</label>
+                            <textarea name="body" rows="5" required placeholder="Contenido del email..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Destinatarios (uno por línea)</label>
+                            <textarea name="recipients" rows="4" required placeholder="email1@example.com&#10;email2@example.com" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"></textarea>
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">
+                            Crear Campaña
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Stats Tab -->
+            <div id="tab-stats" class="tab-content hidden">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="text-gray-600 text-sm font-medium">Total Campañas</div>
+                        <div id="stat-total" class="text-4xl font-bold text-gray-900 mt-3">0</div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="text-gray-600 text-sm font-medium">Enviadas</div>
+                        <div id="stat-sent" class="text-4xl font-bold text-green-600 mt-3">0</div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="text-gray-600 text-sm font-medium">Pendientes</div>
+                        <div id="stat-pending" class="text-4xl font-bold text-yellow-600 mt-3">0</div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="text-gray-600 text-sm font-medium">Rebotes</div>
+                        <div id="stat-bounced" class="text-4xl font-bold text-red-600 mt-3">0</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-white border-t border-gray-200 mt-16">
+            <div class="max-w-7xl mx-auto px-6 py-8 text-center text-gray-600 text-sm">
+                <p>Infinity Mailer v1.0 — Sistema de gestión de campañas de email</p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // ========== ESTADO Y DATOS ==========
+        let campaigns = [
+            {
+                id: 1,
+                name: 'Campaña Test 1',
+                subject: 'Prueba inicial',
+                status: 'sent',
+                recipients: 100,
+                sent: 95,
+                bounced: 5,
+                date: '2026-03-28'
+            }
+        ];
+
+        // ========== INICIALIZAR ==========
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', switchTab);
+        });
+
+        document.getElementById('campaign-form').addEventListener('submit', createCampaign);
+
+        // ========== FUNCIONES ==========
+        function switchTab(e) {
+            const tab = e.target.dataset.tab;
+
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('active', 'border-blue-600', 'text-blue-600');
+                b.classList.add('border-transparent', 'text-gray-600');
+            });
+            e.target.classList.add('active', 'border-blue-600', 'text-blue-600');
+
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+
+            if (tab === 'campaigns') renderCampaigns();
+            if (tab === 'stats') renderStats();
+        }
+
+        function renderCampaigns() {
+            const grid = document.getElementById('campaigns-grid');
+            const empty = document.getElementById('campaigns-empty');
+
+            if (campaigns.length === 0) {
+                grid.innerHTML = '';
+                empty.classList.remove('hidden');
+                return;
+            }
+
+            empty.classList.add('hidden');
+            grid.innerHTML = campaigns.map(c => `
+                <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition p-6">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900">${c.name}</h3>
+                            <p class="text-gray-600 text-sm">${c.subject}</p>
+                        </div>
+                        <span class="px-3 py-1 rounded-full text-xs font-bold ${
+                            c.status === 'sent' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        }">
+                            ${c.status === 'sent' ? '✅ Enviada' : '⏳ Pendiente'}
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-4 gap-3 text-sm">
+                        <div class="bg-gray-50 p-3 rounded">
+                            <div class="text-gray-600 text-xs">Destinatarios</div>
+                            <div class="text-lg font-bold">${c.recipients}</div>
+                        </div>
+                        <div class="bg-green-50 p-3 rounded">
+                            <div class="text-gray-600 text-xs">Enviados</div>
+                            <div class="text-lg font-bold text-green-600">${c.sent}</div>
+                        </div>
+                        <div class="bg-red-50 p-3 rounded">
+                            <div class="text-gray-600 text-xs">Rebotes</div>
+                            <div class="text-lg font-bold text-red-600">${c.bounced}</div>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded">
+                            <div class="text-gray-600 text-xs">Fecha</div>
+                            <div class="font-mono text-sm">${c.date}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderStats() {
+            const total = campaigns.length;
+            const sent = campaigns.filter(c => c.status === 'sent').length;
+            const pending = campaigns.filter(c => c.status === 'pending').length;
+            const bounced = campaigns.reduce((sum, c) => sum + c.bounced, 0);
+
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-sent').textContent = sent;
+            document.getElementById('stat-pending').textContent = pending;
+            document.getElementById('stat-bounced').textContent = bounced;
+        }
+
+        function createCampaign(e) {
+            e.preventDefault();
+
+            const form = e.target;
+            const recipients = form.recipients.value.split('\n').filter(x => x.trim());
+
+            const campaign = {
+                id: campaigns.length + 1,
+                name: form.name.value,
+                subject: form.subject.value,
+                status: 'pending',
+                recipients: recipients.length,
+                sent: 0,
+                bounced: 0,
+                date: new Date().toISOString().split('T')[0]
+            };
+
+            campaigns.unshift(campaign);
+            form.reset();
+            alert('✅ Campaña creada: ' + campaign.name);
+            renderCampaigns();
+            renderStats();
+            document.querySelector('[data-tab="campaigns"]').click();
+        }
+
+        // Render inicial
+        renderCampaigns();
+        renderStats();
+    </script>
+</body>
+</html>
+<\!-- v2.0 -->
