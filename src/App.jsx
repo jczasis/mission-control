@@ -1211,6 +1211,11 @@ const ADD_MENU = [
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
+  // Si el query param "page=mailer2", mostrar Mailer2
+  if (new URL(window.location).searchParams.get('page') === 'mailer2') {
+    return <Mailer2 />;
+  }
+
   const [cards,    setCards]    = usePersistedState('mc-cards', INITIAL_CARDS);
   const [tools,    setTools]    = usePersistedState('mc-tools', INITIAL_TOOLS);
   const [alerts,   setAlerts]   = usePersistedState('mc-alerts', DEFAULT_ALERTS);
@@ -1482,5 +1487,100 @@ export default function App() {
         }
       </div>
     </>
+  );
+}
+
+// Mailer2 standalone component
+function Mailer2() {
+  const [campaigns, setCampaigns] = React.useState([]);
+  const [selected, setSelected] = React.useState(null);
+  const [recipients, setRecipients] = React.useState([]);
+
+  const API = 'https://lirzzskabepwdlhvdmla.supabase.co/rest/v1';
+  const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxpcnp6c2thYmVwd2RsaHZkbWxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMDExMjcsImV4cCI6MjA4Nzg3NzEyN30.RDl7rokWNnW5nrPDFVndHwWd9rNv8Wr42M4V6SJbgKw';
+
+  React.useEffect(() => {
+    fetch(API + '/email_campaigns?order=created_at.desc', {
+      headers: { apikey: KEY, Authorization: 'Bearer ' + KEY }
+    }).then(r => r.json()).then(setCampaigns);
+  }, []);
+
+  const selectCampaign = (id) => {
+    setSelected(campaigns.find(c => c.id === id));
+    fetch(API + '/email_recipients?campaign_id=eq.' + id, {
+      headers: { apikey: KEY, Authorization: 'Bearer ' + KEY }
+    }).then(r => r.json()).then(setRecipients);
+  };
+
+  const approve = (id) => {
+    if (!confirm('¿Aprobar?')) return;
+    fetch(API + '/email_campaigns?id=eq.' + id, {
+      method: 'PATCH',
+      headers: {
+        apikey: KEY,
+        Authorization: 'Bearer ' + KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ status: 'approved', approved_at: new Date().toISOString() })
+    }).then(() => { alert('✅ Aprobada'); location.reload(); });
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-white border-b border-gray-200 p-6">
+        <h1 className="text-3xl font-bold">📧 Infinity Mailer</h1>
+      </div>
+      <div className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-3 gap-6">
+        <div className="bg-white rounded border p-4">
+          <div className="font-bold mb-4 pb-2 border-b">Campañas ({campaigns.length})</div>
+          {campaigns.map(c => (
+            <button
+              key={c.id}
+              onClick={() => selectCampaign(c.id)}
+              className={`w-full text-left p-3 text-sm mb-2 rounded hover:bg-gray-50 ${
+                selected?.id === c.id ? 'bg-blue-100 border-l-4 border-blue-600' : ''
+              }`}
+              style={{border: 'none'}}
+            >
+              <div className="font-bold">{c.name}</div>
+              <div className="text-xs text-gray-600 mt-1">Status: <span className="font-bold" style={{color: c.status === 'draft' ? '#ca8a04' : '#16a34a'}}>{c.status}</span></div>
+              <div className="text-xs text-gray-600">Contactos: {c.recipient_count}</div>
+            </button>
+          ))}
+        </div>
+        <div className="col-span-2">
+          {!selected ? (
+            <div className="bg-white rounded border p-6 text-center text-gray-500">Selecciona una campaña</div>
+          ) : (
+            <div className="bg-white rounded border p-6">
+              <h2 className="text-2xl font-bold mb-4">{selected.name}</h2>
+              <div className="bg-gray-50 p-4 rounded mb-6">
+                <p className="text-xs font-bold text-gray-600 mb-2">Contactos: {selected.recipient_count}</p>
+                <p className="text-xs font-bold text-gray-600 mb-2">Status: <span style={{color: selected.status === 'draft' ? '#ca8a04' : '#16a34a'}}>{selected.status}</span></p>
+              </div>
+              {selected.status === 'draft' && (
+                <button
+                  onClick={() => approve(selected.id)}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded font-bold mb-6"
+                >
+                  ✅ APROBAR CAMPAÑA
+                </button>
+              )}
+              <div className="border-t pt-4">
+                <h3 className="font-bold mb-3">Destinatarios ({recipients.length})</h3>
+                <div className="space-y-1">
+                  {recipients.slice(0, 20).map(r => (
+                    <div key={r.email} className="text-sm bg-gray-100 p-2 rounded flex justify-between">
+                      <span>{r.email}</span>
+                      <span className="text-xs text-gray-500">{r.status}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
