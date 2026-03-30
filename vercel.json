@@ -1,4 +1,10 @@
 {
-  "buildCommand": "npm run build && cp public/mailer2.html dist/mailer2.html",
-  "outputDirectory": "dist"
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
