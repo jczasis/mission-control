@@ -1,115 +1,79 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Infinity Mailer 2</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Infinity Mailer</title>
+<script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50">
-  <div class="min-h-screen">
-    <div class="bg-white border-b border-gray-200">
-      <div class="max-w-6xl mx-auto px-6 py-6">
-        <h1 class="text-3xl font-bold text-gray-900">📧 Infinity Mailer v2</h1>
-        <p class="text-sm text-gray-500 mt-1">Aprobación de campañas</p>
-      </div>
-    </div>
-
-    <div class="max-w-6xl mx-auto px-6 py-8" id="app"></div>
-  </div>
-
-  <script>
-    const API = 'https://lirzzskabepwdlhvdmla.supabase.co/rest/v1';
-    const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxpcnp6c2thYmVwd2RsaHZkbWxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMDExMjcsImV4cCI6MjA4Nzg3NzEyN30.RDl7rokWNnW5nrPDFVndHwWd9rNv8Wr42M4V6SJbgKw';
-
-    let data = { campaigns: [], selected: null };
-
-    function load() {
-      document.getElementById('app').innerHTML = '<p>Cargando...</p>';
-      fetch(API + '/email_campaigns?order=created_at.desc', {
-        headers: { apikey: KEY, Authorization: 'Bearer ' + KEY }
-      })
-      .then(r => r.json())
-      .then(c => { data.campaigns = c; paint(); })
-      .catch(e => { document.getElementById('app').innerHTML = '<p style="color:red">Error: ' + e.message + '</p>'; });
+<div id="app"></div>
+<script>
+const API = 'https://lirzzskabepwdlhvdmla.supabase.co/rest/v1';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxpcnp6c2thYmVwd2RsaHZkbWxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMDExMjcsImV4cCI6MjA4Nzg3NzEyN30.RDl7rokWNnW5nrPDFVndHwWd9rNv8Wr42M4V6SJbgKw';
+let camps = [], sel = null;
+function load() {
+  document.getElementById('app').innerHTML = '<p class="p-8">Cargando...</p>';
+  fetch(API + '/email_campaigns?order=created_at.desc', {
+    headers: { apikey: KEY, Authorization: 'Bearer ' + KEY }
+  }).then(r => r.json()).then(c => { camps = c; paint(); }).catch(e => {
+    document.getElementById('app').innerHTML = '<p class="p-8 text-red-600">Error: ' + e + '</p>';
+  });
+}
+function pick(id) {
+  sel = camps.find(c => c.id === id);
+  paint();
+  fetch(API + '/email_recipients?campaign_id=eq.' + id, {
+    headers: { apikey: KEY, Authorization: 'Bearer ' + KEY }
+  }).then(r => r.json()).then(recs => {
+    let html = '';
+    recs.forEach(r => {
+      html += '<div class="text-sm bg-gray-100 p-2 rounded flex justify-between"><span>' + r.email + '</span><span class="text-gray-500 text-xs">' + r.status + '</span></div>';
+    });
+    const el = document.getElementById('recips');
+    if (el) el.innerHTML = html || '<p class="text-sm text-gray-500">No hay destinatarios</p>';
+  });
+}
+function ok(id) {
+  if (!confirm('¿Aprobar?')) return;
+  fetch(API + '/email_campaigns?id=eq.' + id, {
+    method: 'PATCH',
+    headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'approved', approved_at: new Date().toISOString() })
+  }).then(r => { alert('✅ Aprobada'); load(); }).catch(e => alert('Error: ' + e));
+}
+function paint() {
+  let html = '<div class="max-w-6xl mx-auto"><div class="bg-white border-b border-gray-200 p-6 mb-8"><h1 class="text-3xl font-bold">📧 Infinity Mailer</h1></div>';
+  html += '<div class="max-w-6xl mx-auto px-6 grid grid-cols-3 gap-6">';
+  html += '<div class="bg-white border border-gray-200 rounded p-4"><div class="font-bold mb-4 pb-2 border-b">Campañas (' + camps.length + ')</div>';
+  camps.forEach(c => {
+    let cls = sel?.id === c.id ? 'bg-blue-100 border-l-4 border-blue-600' : '';
+    html += '<button onclick="pick(\'' + c.id + '\')" class="w-full text-left p-3 hover:bg-gray-50 text-sm ' + cls + '" style="border:0; margin-bottom:4px"><div class="font-bold text-sm">' + c.name + '</div><div class="text-xs text-gray-600 mt-1">Status: <span class="font-bold" style="color:' + (c.status === 'draft' ? '#ca8a04' : '#16a34a') + '">' + c.status + '</span></div><div class="text-xs text-gray-600">Contactos: ' + c.recipient_count + '</div></button>';
+  });
+  html += '</div>';
+  
+  if (!sel) {
+    html += '<div class="col-span-2 bg-white border border-gray-200 rounded p-6 text-center text-gray-500">Selecciona una campaña</div>';
+  } else {
+    html += '<div class="col-span-2 bg-white border border-gray-200 rounded p-6"><h2 class="text-2xl font-bold mb-4">' + sel.name + '</h2>';
+    html += '<div class="grid grid-cols-4 gap-3 mb-6">';
+    html += '<div class="bg-gray-50 p-3 rounded text-center"><p class="text-xs text-gray-600 mb-1">Total</p><p class="text-xl font-bold">' + sel.recipient_count + '</p></div>';
+    html += '<div class="bg-gray-50 p-3 rounded text-center"><p class="text-xs text-gray-600 mb-1">Status</p><p class="font-bold" style="color:' + (sel.status === 'draft' ? '#ca8a04' : '#16a34a') + '">' + sel.status + '</p></div>';
+    html += '<div class="bg-gray-50 p-3 rounded text-center"><p class="text-xs text-gray-600 mb-1">Creado</p><p class="text-xs font-bold">' + new Date(sel.created_at).toLocaleDateString('es-CL') + '</p></div>';
+    html += '<div class="bg-gray-50 p-3 rounded text-center"><p class="text-xs text-gray-600 mb-1">Fuente</p><p class="text-xs font-bold">∞ Box</p></div>';
+    html += '</div>';
+    html += '<div class="bg-gray-50 p-4 rounded mb-6"><p class="text-xs font-bold text-gray-600 mb-2">📧 Asunto</p><p class="text-sm mb-4">' + (sel.subject || 'Sin asunto') + '</p><p class="text-xs font-bold text-gray-600 mb-2">📝 Mensaje</p><p class="text-sm text-gray-700 whitespace-pre-wrap max-h-24 overflow-y-auto">' + (sel.body || 'Sin contenido') + '</p></div>';
+    if (sel.status === 'draft') {
+      html += '<button onclick="ok(\'' + sel.id + '\')" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded font-bold mb-6">✅ APROBAR CAMPAÑA</button>';
+    } else {
+      html += '<div class="w-full bg-green-100 text-green-800 py-3 rounded text-center font-bold mb-6">✅ YA APROBADA</div>';
     }
-
-    function pick(id) {
-      data.selected = data.campaigns.find(c => c.id === id);
-      paint();
-      fetch(API + '/email_recipients?campaign_id=eq.' + id + '&select=email,status', {
-        headers: { apikey: KEY, Authorization: 'Bearer ' + KEY }
-      }).then(r => r.json()).then(recipients => {
-        let html = '';
-        recipients.forEach(r => {
-          html += '<div style="font-size:12px; background:#f3f4f6; padding:8px; margin:4px 0; border-radius:4px; display:flex; justify-content:space-between"><span>' + r.email + '</span><span style="color:#999">' + r.status + '</span></div>';
-        });
-        document.getElementById('recips').innerHTML = html || '<p style="font-size:12px; color:#999">No hay destinatarios</p>';
-      });
-    }
-
-    function ok(id) {
-      if (!confirm('¿Aprobar?')) return;
-      fetch(API + '/email_campaigns?id=eq.' + id, {
-        method: 'PATCH',
-        headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'approved', approved_at: new Date().toISOString() })
-      }).then(r => { alert('✅ Aprobada'); load(); }).catch(e => alert('Error: ' + e.message));
-    }
-
-    function paint() {
-      let html = '<div style="display:grid; grid-template-columns:1fr 2fr; gap:24px">';
-      html += '<div style="background:white; border:1px solid #e5e7eb; border-radius:8px; padding:16px">';
-      html += '<div style="font-weight:bold; margin-bottom:16px">Campañas (' + data.campaigns.length + ')</div>';
-      data.campaigns.forEach(c => {
-        let cls = data.selected?.id === c.id ? 'background:#dbeafe; border-left:4px solid #2563eb' : '';
-        html += '<button onclick="pick(\'' + c.id + '\')" style="width:100%; text-align:left; padding:12px; border:0; border-bottom:1px solid #f3f4f6; cursor:pointer; ' + cls + '">';
-        html += '<div style="font-weight:600; font-size:14px">' + c.name + '</div>';
-        html += '<div style="font-size:12px; color:#666; margin-top:4px">Status: <span style="font-weight:bold; color:' + (c.status === 'draft' ? '#ca8a04' : '#16a34a') + '">' + c.status + '</span></div>';
-        html += '<div style="font-size:12px; color:#999">Contactos: ' + c.recipient_count + '</div>';
-        html += '</button>';
-      });
-      html += '</div>';
-
-      html += '<div>';
-      if (!data.selected) {
-        html += '<div style="background:white; border:1px solid #e5e7eb; border-radius:8px; padding:24px; text-align:center; color:#999">Selecciona una campaña</div>';
-      } else {
-        html += '<div style="background:white; border:1px solid #e5e7eb; border-radius:8px; padding:24px">';
-        html += '<h2 style="font-size:24px; font-weight:bold; margin-bottom:16px">' + data.selected.name + '</h2>';
-        html += '<div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px; margin-bottom:16px">';
-        html += '<div style="background:#f9fafb; padding:12px; border-radius:4px; text-align:center"><p style="font-size:12px; color:#666">Total</p><p style="font-size:20px; font-weight:bold">' + data.selected.recipient_count + '</p></div>';
-        html += '<div style="background:#f9fafb; padding:12px; border-radius:4px; text-align:center"><p style="font-size:12px; color:#666">Status</p><p style="font-weight:bold; color:' + (data.selected.status === 'draft' ? '#ca8a04' : '#16a34a') + '">' + data.selected.status + '</p></div>';
-        html += '<div style="background:#f9fafb; padding:12px; border-radius:4px; text-align:center"><p style="font-size:12px; color:#666">Creado</p><p style="font-size:12px; font-weight:bold">' + new Date(data.selected.created_at).toLocaleDateString('es-CL') + '</p></div>';
-        html += '<div style="background:#f9fafb; padding:12px; border-radius:4px; text-align:center"><p style="font-size:12px; color:#666">Fuente</p><p style="font-size:12px; font-weight:bold">∞ Box</p></div>';
-        html += '</div>';
-
-        html += '<div style="background:#f9fafb; padding:16px; border-radius:4px; margin-bottom:16px">';
-        html += '<p style="font-size:12px; font-weight:600; color:#666; margin-bottom:4px">📧 Asunto</p>';
-        html += '<p style="font-size:14px; margin-bottom:12px">' + (data.selected.subject || 'Sin asunto') + '</p>';
-        html += '<p style="font-size:12px; font-weight:600; color:#666; margin-bottom:4px">📝 Mensaje</p>';
-        html += '<p style="font-size:13px; color:#374151; white-space:pre-wrap; max-height:120px; overflow-y:auto">' + (data.selected.body || 'Sin contenido') + '</p>';
-        html += '</div>';
-
-        if (data.selected.status === 'draft') {
-          html += '<button onclick="ok(\'' + data.selected.id + '\')" style="width:100%; background:#16a34a; color:white; padding:12px; border-radius:4px; font-weight:600; border:0; cursor:pointer; margin-bottom:16px">✅ APROBAR CAMPAÑA</button>';
-        } else {
-          html += '<div style="width:100%; background:#dcfce7; color:#166534; padding:12px; border-radius:4px; text-align:center; font-weight:600; margin-bottom:16px">✅ YA APROBADA</div>';
-        }
-
-        html += '<div style="border-top:1px solid #e5e7eb; padding-top:16px">';
-        html += '<h3 style="font-weight:600; margin-bottom:12px">👥 Destinatarios</h3>';
-        html += '<div id="recips" style="max-height:200px; overflow-y:auto"><p style="font-size:12px; color:#999">Cargando...</p></div>';
-        html += '</div>';
-        html += '</div>';
-      }
-      html += '</div></div>';
-
-      document.getElementById('app').innerHTML = html;
-    }
-
-    load();
-    setInterval(load, 60000);
-  </script>
+    html += '<div class="border-t pt-4"><h3 class="font-bold mb-3">👥 Destinatarios</h3><div id="recips" class="text-sm">Cargando...</div></div></div>';
+  }
+  html += '</div></div>';
+  document.getElementById('app').innerHTML = html;
+}
+load();
+</script>
 </body>
 </html>
