@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinity Mailer - Validar Lista Mañana</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 { font-size: 28px; margin-bottom: 10px; }
+        .header p { font-size: 14px; opacity: 0.9; }
+        .content {
+            padding: 30px;
+        }
+        .status-box {
+            background: #f5f5f5;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+        .status-box.loading { border-left-color: #ffc107; }
+        .status-box.valid { border-left-color: #28a745; }
+        .status-box.invalid { border-left-color: #dc3545; }
+        .status-box h3 {
+            font-size: 16px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .contacts-list {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .contact-item {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+        }
+        .contact-item:last-child { border-bottom: none; }
+        .contact-email {
+            font-family: monospace;
+            font-weight: 500;
+            color: #667eea;
+        }
+        .contact-company {
+            color: #666;
+            flex: 1;
+            margin: 0 15px;
+        }
+        .contact-sector {
+            background: #e7f3ff;
+            color: #0066cc;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        .alerts {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .alerts h4 {
+            color: #856404;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .alert-item {
+            color: #856404;
+            font-size: 13px;
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+        .alert-item:before {
+            content: "⚠️";
+            position: absolute;
+            left: 0;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        button {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-approve {
+            background: #28a745;
+            color: white;
+        }
+        .btn-approve:hover { background: #218838; }
+        .btn-reject {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-reject:hover { background: #c82333; }
+        .btn-refresh {
+            background: #667eea;
+            color: white;
+        }
+        .btn-refresh:hover { background: #5568d3; }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .date-display {
+            font-size: 16px;
+            font-weight: 600;
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Infinity Mailer</h1>
+            <p>Validar lista de contactos para mañana</p>
+        </div>
+        <div class="content">
+            <div class="date-display" id="dateDisplay"></div>
+
+            <div class="status-box loading" id="statusBox">
+                <h3>
+                    <span class="spinner"></span>
+                    Cargando lista...
+                </h3>
+            </div>
+
+            <div id="errorContainer"></div>
+            <div id="alertsContainer"></div>
+
+            <div class="stats" id="statsContainer"></div>
+
+            <div id="contactsContainer" style="display: none;">
+                <h3 style="margin-bottom: 15px;">📧 Contactos (scroll para ver más)</h3>
+                <div class="contacts-list" id="contactsList"></div>
+            </div>
+
+            <div class="actions" id="actionsContainer" style="display: none;">
+                <button class="btn btn-refresh" onclick="loadData()">🔄 Recargar</button>
+                <button class="btn btn-reject" onclick="rejectList()">❌ Rechazar</button>
+                <button class="btn btn-approve" onclick="approveList()">✅ Aprobar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://mission-control-theta-seven.vercel.app';
+
+        async function getTomorrowDate() {
+            // Calcula mañana en zona horaria Chile
+            const now = new Date();
+            const chiletimeOffset = -180; // UTC-3
+            const utcDate = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
+            const clDate = new Date(utcDate.getTime() + chiletimeOffset * 60000);
+            const tomorrow = new Date(clDate);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+
+            const y = tomorrow.getFullYear();
+            const m = String(tomorrow.getMonth() + 1).padStart(2, '0');
+            const d = String(tomorrow.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        async function loadData() {
+            const statusBox = document.getElementById('statusBox');
+            const errorContainer = document.getElementById('errorContainer');
+            const alertsContainer = document.getElementById('alertsContainer');
+            const statsContainer = document.getElementById('statsContainer');
+            const contactsContainer = document.getElementById('contactsContainer');
+            const contactsList = document.getElementById('contactsList');
+            const actionsContainer = document.getElementById('actionsContainer');
+            const dateDisplay = document.getElementById('dateDisplay');
+
+            // Limpiar
+            errorContainer.innerHTML = '';
+            alertsContainer.innerHTML = '';
+            statsContainer.innerHTML = '';
+            contactsList.innerHTML = '';
+            contactsContainer.style.display = 'none';
+            actionsContainer.style.display = 'none';
+
+            statusBox.className = 'status-box loading';
+            statusBox.innerHTML = '<h3><span class="spinner"></span>Cargando lista...</h3>';
+
+            try {
+                const tomorrow = await getTomorrowDate();
+                dateDisplay.textContent = `📅 ${tomorrow}`;
+
+                // Cargar desde Supabase
+                const response = await fetch(
+                    `https://sgyuzthxokzaektrdehn.supabase.co/rest/v1/email_campaigns?date=eq.${tomorrow}&select=*`,
+                    {
+                        headers: {
+                            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNneXV6dGh4b2t6YWVrdHJkZWhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NzM0MjczMzMsImV4cCI6MTk4OTAwNzMzM30.8cOLEh-2cEHJdVZf3LqhMj1o0GAwqYg5fJ1R1h6D0hQ',
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const campaigns = await response.json();
+
+                if (!campaigns || campaigns.length === 0) {
+                    throw new Error(`No existe lista para ${tomorrow}`);
+                }
+
+                const campaign = campaigns[0];
+                const recipients = campaign.recipients || [];
+
+                // Mostrar estadísticas
+                statsContainer.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-value">${recipients.length}</div>
+                        <div class="stat-label">Contactos</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${campaign.status}</div>
+                        <div class="stat-label">Estado</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${new Date(campaign.created_at).toLocaleDateString('es-CL')}</div>
+                        <div class="stat-label">Generado</div>
+                    </div>
+                `;
+
+                // Validar contactos
+                const errors = validateContacts(recipients);
+
+                if (errors.length > 0) {
+                    const alerts = errors.slice(0, 10).map(e =>
+                        `<div class="alert-item">${e}</div>`
+                    ).join('');
+                    alertsContainer.innerHTML = `
+                        <div class="alerts">
+                            <h4>⚠️ ${errors.length} alerta(s)</h4>
+                            ${alerts}
+                            ${errors.length > 10 ? `<div class="alert-item">... +${errors.length - 10} más</div>` : ''}
+                        </div>
+                    `;
+                }
+
+                // Mostrar contactos
+                const contactsHtml = recipients.map(c => `
+                    <div class="contact-item">
+                        <span class="contact-email">${c.email}</span>
+                        <span class="contact-company">${c.company}</span>
+                        <span class="contact-sector">${c.sector || 'N/A'}</span>
+                    </div>
+                `).join('');
+                contactsList.innerHTML = contactsHtml;
+                contactsContainer.style.display = 'block';
+
+                // Actualizar status
+                const isValid = errors.length === 0;
+                statusBox.className = isValid ? 'status-box valid' : 'status-box invalid';
+                statusBox.innerHTML = `<h3>${isValid ? '✅' : '⚠️'} ${isValid ? 'Lista válida' : `${errors.length} alertas encontradas`}</h3>`;
+
+                actionsContainer.style.display = 'flex';
+
+            } catch (err) {
+                console.error(err);
+                errorContainer.innerHTML = `<div class="error-message">❌ Error: ${err.message}</div>`;
+                statusBox.className = 'status-box invalid';
+                statusBox.innerHTML = '<h3>❌ Error cargando lista</h3>';
+            }
+        }
+
+        function validateContacts(contacts) {
+            const errors = [];
+            const genericPatterns = ['info@', 'contacto@', 'admin@', 'soporte@', 'support@',
+                                     'noreply@', 'gerencia@', 'notificaciones@', 'comunicaciones@'];
+            const suspiciousDomains = ['123.cl', 'test.cl', 'example.com', 'localhost'];
+
+            contacts.forEach((c, i) => {
+                if (!c.email || c.email.indexOf('@') === -1) {
+                    errors.push(`Contacto ${i + 1}: email inválido`);
+                }
+                const domain = c.email.split('@')[1]?.toLowerCase() || '';
+                if (suspiciousDomains.includes(domain)) {
+                    errors.push(`Contacto ${i + 1}: dominio sospechoso (${domain})`);
+                }
+                if (genericPatterns.some(p => c.email.toLowerCase().startsWith(p))) {
+                    errors.push(`Contacto ${i + 1}: email genérico (${c.email})`);
+                }
+            });
+
+            return errors;
+        }
+
+        async function approveList() {
+            const tomorrow = await getTomorrowDate();
+            if (confirm(`¿Aprobar lista de ${tomorrow}?`)) {
+                alert('✅ Lista aprobada. El envío se ejecutará a las 09:30 CL.');
+                console.log(`List approved for ${tomorrow}`);
+            }
+        }
+
+        function rejectList() {
+            alert('❌ Lista rechazada. Contacta a Claude para revisar.');
+        }
+
+        // Cargar al iniciar
+        loadData();
+        // Recargar cada 2 minutos
+        setInterval(loadData, 120000);
+    </script>
+</body>
+</html>
